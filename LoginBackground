@@ -1,0 +1,150 @@
+#!/bin/bash
+# -----------------------------------------------------------------------------------
+# LoginBackground Readme & License
+# -----------------------------------------------------------------------------------
+#
+# Description:
+# This script provides system administrators the ability to deploy your enterprise
+# logo page/policy banner. It can be used only to change the login window background.
+#
+# This script depends on three other free software:
+# . SArtFileTools, is developed by Alex Zielenski, you can find it here: 
+#      https://github.com/alexzielenski/SArtFileTool.
+# . nConvert, is developed by Pierre-E Gougelet, can be found here:
+#      http://www.xnview.com/en/nconvert.html
+# . ScreenResolution: which is developed by myself, can be found here:
+#      https://github.com/Tonyliu2ca/ScreenResolution
+#
+# Version 0.1, Spe 26, 2012
+# Author: Tony Liu
+# History:
+#   Sep 25, 2012: Initial version.
+#
+# System requirement:
+#   Compatible with Mac OS X 10.7.x and 10.8.x
+#
+# Usage:
+# Make a big png picture file, for now, 2880x1800 pixels is the highest screen 
+# resoluntion of any Mac computer can reach. and put your institute comments or
+# banner at the left bottom corner, download all the above three software and
+# put them with the png file into one folder, which is defined by toolPath in 
+# LoginBackground script.
+#
+# Even Alex claim that his new version of SArtFileTools is compatible with OS X 10.7,
+# but it seems not true upon my test, so find a old version which works for OS X 10.7
+# SArtfile.bin, it is called SArtFileTool_X7 in my script. Please update me if it's wrong.
+#
+# It is called LoginBackground, you can easily migrate it into install package.
+
+# License:
+# LoginBackground is license under the Simplified BSD License – modified to forbid any
+# commercial redistribution. Please contact with me if you want to use it for commercial purpose.
+
+#
+# Copyright (c) 2011-2012, Tony Liu
+# All rights reserved.
+
+# Redistribution and use in source and binary forms, with or without modification, are permitted
+# provided that the following conditions are met:
+
+#    * Redistributions of source code must retain the above copyright notice, this list of 
+#      conditions and the following disclaimer.
+#    * Redistributions in binary form must reproduce the above copyright notice, this list
+#      of conditions and the following disclaimer in the documentation and/or other materials
+#      provided with the distribution.
+#    * Any redistribution, use, or modification is done solely for personal benefit and not
+#      for any commercial purpose or for monetary gain
+
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+# AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+
+
+ProperPNG="a.png"
+toolPath="/usr/local/_LBG.tmp"
+logger -i "LoginBackground: Start..."
+
+OSXver=`sw_vers -productVersion`
+logger -i "LoginBackground: OS X version is ${OSXver}."
+
+Width=`$toolPath/scres | awk '{print $1}'`
+Height=`$toolPath/scres | awk '{print $2}'`
+let "yPos = 1800 - $Height" 
+logger -i "LoginBackground: The best screen resolution: ${Width}x$Height"
+
+if [ "$Height" -gt "1800" -o "$Width" -gt 2880 ]; then
+   logger -i "LoginBackGround: error 1: The system screen resolution is bigger than 2880x1800."
+   rm -fr $toolPath
+   exit 1
+fi
+
+cd $toolPath
+rm -fr $toolPath/$ProperPNG
+$toolPath/nconvert -out png -ctype rgb -32bits -crop 0 $yPos $Width $Height -o $toolPath/$ProperPNG $toolPath/Big.png
+
+if [ $OSXver \< "10.7.4" ]; then
+   SysRoot="/System/Library/Frameworks/AppKit.framework/Versions/C/Resources"
+
+   # Make a backup on first time.
+   if [ ! -e "$SysRoot/NSTexturedFullScreenBackgroundColor_org.png" ]; then
+      cp -f $SysRoot/NSTexturedFullScreenBackgroundColor.png $SysRoot/NSTexturedFullScreenBackgroundColor_org.png
+   fi
+   cp -f $toolPath/$ProperPNG $SysRoot/NSTexturedFullScreenBackgroundColor.png
+   chown root:wheel $SysRoot/NSTexturedFullScreenBackgroundColor.png
+   chmod 644 $SysRoot/NSTexturedFullScreenBackgroundColor.png
+   logger -i "LoginBackground: system files is updated."
+else
+   SysRoot="/System/Library/PrivateFrameworks/CoreUI.framework/Resources"
+   # SysRoot="/System/Library/PrivateFrameworks/CoreUI.framework/Versions/Current/Resources/"
+
+   if [ ! -e $SysRoot/SArtFile_org.bin ]; then
+      logger -i "LoginBackground: backup system artfile."
+      cp -f $SysRoot/SArtFile.bin $SysRoot/SArtFile_org.bin
+   else
+      logger -i "LoginBackground: system artfile exists."
+   fi
+   rm -fr $toolPath/sartFiles
+   if [ $OSXver \< "10.8.0" ]; then
+      cp $SysRoot/SArtFile.bin $toolPath/SA.bin
+      $toolPath/SArtFileTool_X7 -d $toolPath/SA.bin $toolPath/sartFiles>& /dev/null
+      cp -f $toolPath/$ProperPNG $toolPath/sartFiles/267.png
+      cp -f $toolPath/$ProperPNG "$toolPath/sartFiles/267@2x.png"
+      $toolPath/SArtFileTool_X7 -e $toolPath/sartFiles $toolPath/SA.bin $toolPath/New.bin >& /dev/null
+      if [ -e "$toolPath/New.bin" ]; then
+         cp -f $toolPath/New.bin $SysRoot/SArtFile.bin
+         logger -i "LoginBackground: system artfile is updated."
+      else
+         logger -i "LoginBackground: system error: creating system artfile."
+         rm -fr $toolPath
+         exit 2
+      fi
+   else
+      # system must be 10.8 above
+      $toolPath/SArtFileTool -d $toolPath/sartFiles >& /dev/null
+      cp -f $toolPath/$ProperPNG $toolPath/sartFiles/272-1.png
+      cp -f $toolPath/$ProperPNG $toolPath/sartFiles/272-2.png
+      $toolPath/SArtFileTool -e $toolPath/sartFiles $toolPath/New.bin >& /dev/null
+      if [ -e "$toolPath/New.bin" ]; then
+         cp -f $toolPath/New.bin $SysRoot/SArtFile.bin
+         logger -i "LoginBackground: system artfile is updated."
+      else
+         logger -i "LoginBackground: system error: creating system artfile."
+         rm -fr $toolPath
+         exit 2
+      fi
+   fi
+fi
+
+rm -fr $toolPath
+rm -fr /Library/Security/PolicyBanner.rtfd
+
+#echo "End……"
+logger -i "LoginBackground: End."
+exit 0
