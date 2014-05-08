@@ -74,8 +74,8 @@ logger -i "LoginBackground: Start..."
 OSXver=`sw_vers -productVersion`
 logger -i "LoginBackground: OS X version is ${OSXver}."
 
-Width=`$toolPath/scres | awk '{print $1}'`
-Height=`$toolPath/scres | awk '{print $2}'`
+Width=`$toolPath/scres -l 1 | awk '{print $1}' | grep -m 1 ""`
+Height=`$toolPath/scres -l 1 | awk '{print $1}' | grep -m 1 ""`
 let "yPos = 1800 - $Height" 
 logger -i "LoginBackground: The best screen resolution: ${Width}x$Height"
 
